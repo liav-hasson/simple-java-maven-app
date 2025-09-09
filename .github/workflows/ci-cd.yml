@@ -24,6 +24,8 @@ jobs:
 
     - name: bump the patch number
       uses: qcastel/github-actions-maven-release@v1.12.0
-      with: 
-        release-type: patch
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        access-token: ${{ secrets.GITHUB_TOKEN }}
+        version-major: 1
+        version-minor: 0

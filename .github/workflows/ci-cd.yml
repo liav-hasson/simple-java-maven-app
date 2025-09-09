@@ -1,0 +1,17 @@
+# epic CI/CD pipeline with github actions
+
+name: my epic pipeline
+
+on: 
+  push: 
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: checkout stage
+      uses: actions/checkout@v4
+      
+        

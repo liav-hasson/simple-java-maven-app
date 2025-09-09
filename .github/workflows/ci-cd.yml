@@ -11,7 +11,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: checkout stage
+    - name: checkout the code 
       uses: actions/checkout@v4
-      
-        
+
+    - name: bump the patch number
+      uses: qcastel/github-actions-maven-release@v1.12.0
+      with: 
+        release-type: patch
+        github-token: ${{ secrets.GITHUB_TOKEN }}

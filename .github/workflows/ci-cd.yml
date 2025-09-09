@@ -2,22 +2,94 @@
 
 name: my epic pipeline
 
-on: 
-  push: 
-    branches: [ master ]
+# Triggers: run on push to master, or manually
+on:
+  push:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+# Permissions needed for tagging, releasing, pushing images
+permissions:
+  contents: write
+  packages: write
+
+# Reusable env var for image naming
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}/simple-java-maven-app
 
 jobs:
-  build:
+  build-release-publish:
     runs-on: ubuntu-latest
 
     steps:
-    - name: checkout the code 
-      uses: actions/checkout@v4
+      # 1. Get repo code (full history so tags work properly)
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: bump the patch number
-      uses: qcastel/github-actions-maven-release@v1.12.0
-      with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-        access-token: ${{ secrets.GITHUB_TOKEN }}
-        version-major: 1
-        version-minor: 0
+      # 2. Install Java 21 (Temurin), cache Maven deps
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      # 3. Auto-bump pom.xml version (customize if needed)
+      - name: Bump Maven version
+        id: bump
+        uses: mickem/gh-action-bump-maven-version@v1
+
+      # 4. Capture project.version from pom.xml into output
+      - name: Read Maven version
+        id: readver
+        run: echo "version=$(mvn -q \
+            -Dexec.executable=echo \
+            -Dexec.args='${project.version}' \
+            --non-recursive exec:exec)" >> $GITHUB_OUTPUT
+
+      # 5. Create + push Git tag for the bumped version
+      - name: Tag release in Git
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git tag "v${{ steps.readver.outputs.version }}" || true
+          git push origin "v${{ steps.readver.outputs.version }}" || true
+
+      # 6. Create a GitHub Release (matches the tag)
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.readver.outputs.version }}
+          release_name: v${{ steps.readver.outputs.version }}
+          draft: false
+          prerelease: false
+
+      # 7. Build the JAR (skip tests, GPG, ITs for speed)
+      - name: Build JAR
+        run: mvn -B -U -e \
+          -DskipTests \
+          -DskipITs \
+          -Dgpg.skip=true \
+          clean package
+
+      # 8. Authenticate with GitHub Container Registry
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 9. Build + push Docker image with version + latest tags
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ steps.readver.outputs.version }}
+            ${{ env.IMAGE_NAME }}:latest

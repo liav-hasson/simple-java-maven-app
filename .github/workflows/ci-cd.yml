@@ -45,10 +45,9 @@ jobs:
       # 4. Capture project.version from pom.xml into output
       - name: Read Maven version
         id: readver
-        run: echo "version=$(mvn -q \
-            -Dexec.executable=echo \
-            -Dexec.args='${project.version}' \
-            --non-recursive exec:exec)" >> $GITHUB_OUTPUT
+        run: |
+          version=$(mvn -q -Dexec.executable=echo -Dexec.args='${project.version}' --non-recursive exec:exec | tail -n 1)
+          echo "version=$version" >> $GITHUB_OUTPUT
 
       # 5. Create + push Git tag for the bumped version
       - name: Tag release in Git

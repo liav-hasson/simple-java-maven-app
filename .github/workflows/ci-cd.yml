@@ -70,11 +70,7 @@ jobs:
 
       # 7. Build the JAR (skip tests, GPG, ITs for speed)
       - name: Build JAR
-        run: mvn -B -U -e \
-          -DskipTests \
-          -DskipITs \
-          -Dgpg.skip=true \
-          clean package
+        run: mvn -B -U -e -DskipTests -DskipITs -Dgpg.skip=true clean package
 
       # 8. Authenticate with GitHub Container Registry
       - name: Log in to GHCR
